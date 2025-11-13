@@ -1,0 +1,8 @@
+functions/server/node_modules
+functions/server/.env
+
+react-app/node_modules
+react-app/build
+.build
+react-app/.env
+
