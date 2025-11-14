@@ -7,7 +7,7 @@ import './App.css';
 
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/app">
       <div className="App">
         {/* Navigation Sidebar - Always Visible */}
         <Navigation />

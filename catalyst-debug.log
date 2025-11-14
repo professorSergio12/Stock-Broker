@@ -3103,3 +3103,86 @@ Response Headers: {"server":"ZGS","date":"Fri, 14 Nov 2025 05:12:27 GMT","conten
 [debug] [2025-11-14T05:19:22.266Z] : <<<< HTTP RESPONSE : 200
 Response Headers: {"server":"ZGS","date":"Fri, 14 Nov 2025 05:19:22 GMT","content-length":"0","connection":"keep-alive","x-content-type-options":"nosniff","cache-control":"private,no-cache,no-store,max-age=0,must-revalidate","pragma":"no-cache","expires":"Thu, 01 Jan 1970 00:00:00 GMT","x-frame-options":"DENY","strict-transport-security":"max-age=64072000; includeSubDomains; preload"}
 
+[debug] [2025-11-14T05:28:00.429Z] : 
+[debug] [2025-11-14T05:28:00.432Z] : ----------------------------------------------------------------------
+[debug] [2025-11-14T05:28:00.432Z] : Command:      C:\Program Files\nodejs\node.exe C:\Users\ACER\AppData\Roaming\npm\node_modules\zcatalyst-cli\lib\bin\catalyst.js serve
+[debug] [2025-11-14T05:28:00.433Z] : CLI Version:  1.18.0-beta.14
+[debug] [2025-11-14T05:28:00.433Z] : Platform:     win32
+[debug] [2025-11-14T05:28:00.433Z] : Node Version: v22.17.0
+[debug] [2025-11-14T05:28:00.433Z] : Time:         Fri Nov 14 2025 10:58:00 GMT+0530 (India Standard Time)
+[debug] [2025-11-14T05:28:00.433Z] : ----------------------------------------------------------------------
+[debug] [2025-11-14T05:28:00.433Z] : 
+[debug] [2025-11-14T05:28:00.854Z] : > authorizing via signed-in user option
+[debug] [2025-11-14T05:28:00.854Z] : > command requires scopes: ["ZohoCatalyst.projects.ALL","ZohoCatalyst.apigateway.apis.READ","ZohoCatalyst.apigateway.READ","ZohoCatalyst.segments.ALL","ZohoCatalyst.cache.READ","ZohoCatalyst.cache.CREATE","ZohoCatalyst.cache.DELETE","ZohoCatalyst.projects.ALL","ZohoCatalyst.cron.ALL","ZohoCatalyst.zcql.CREATE","ZohoCatalyst.projects.users.READ","ZohoCatalyst.projects.users.CREATE","ZohoCatalyst.projects.users.DELETE","ZohoCatalyst.projects.users.UPDATE","ZohoCatalyst.authentication.CREATE","ZohoCatalyst.email.CREATE","ZohoCatalyst.tables.ALL","ZohoCatalyst.tables.rows.ALL","ZohoCatalyst.tables.columns.ALL","ZohoCatalyst.tables.bulk.CREATE","ZohoCatalyst.tables.bulk.READ","ZohoCatalyst.folders.ALL","ZohoCatalyst.files.CREATE","ZohoCatalyst.files.READ","ZohoCatalyst.files.DELETE","ZohoCatalyst.functions.ALL","ZohoCatalyst.functions.EXECUTE","ZohoCatalyst.eventlistners.ALL","ZohoCatalyst.eventlisteners.produce","ZohoCatalyst.security.rules.Read","ZohoCatalyst.security.rules.Update","ZohoCatalyst.notifications.mobile","ZohoCatalyst.notifications.web","ZohoCatalyst.search.READ","ZohoCatalyst.mlkit.READ","QuickML.deployment.READ","ZohoCatalyst.pdfshot.execute","ZohoCatalyst.dataverse.execute","ZohoCatalyst.circuits.execution.DELETE","ZohoCatalyst.circuits.execution.READ","ZohoCatalyst.circuits.execute","ZohoCatalyst.appsail.Read","ZohoCatalyst.jobpool.READ","ZohoCatalyst.job.ALL","ZohoCatalyst.nosql.READ","ZohoCatalyst.nosql.rows.ALL"]
+[debug] [2025-11-14T05:28:00.872Z] : >>>> HTTP REQUEST : GET https://api.catalyst.zoho.com/baas/v1/project/22744000000162010 
+
+[debug] [2025-11-14T05:28:02.016Z] : <<<< HTTP RESPONSE : 200
+Response Headers: {"server":"ZGS","date":"Fri, 14 Nov 2025 05:28:02 GMT","content-type":"application/vnd.catalyst.v2+json","transfer-encoding":"chunked","connection":"keep-alive","x-content-type-options":"nosniff","cache-control":"private,no-cache,no-store,max-age=0,must-revalidate","pragma":"no-cache","expires":"Thu, 01 Jan 1970 00:00:00 GMT","x-frame-options":"DENY","strict-transport-security":"max-age=64072000; includeSubDomains; preload"}
+
+[debug] [2025-11-14T05:28:02.023Z] : >>>> HTTP REQUEST : GET https://api.catalyst.zoho.com/baas/v1/project/22744000000162010/environment 
+
+[debug] [2025-11-14T05:28:02.440Z] : <<<< HTTP RESPONSE : 200
+Response Headers: {"server":"ZGS","date":"Fri, 14 Nov 2025 05:28:03 GMT","content-type":"application/vnd.catalyst.v2+json","transfer-encoding":"chunked","connection":"keep-alive","x-content-type-options":"nosniff","cache-control":"private,no-cache,no-store,max-age=0,must-revalidate","pragma":"no-cache","expires":"Thu, 01 Jan 1970 00:00:00 GMT","x-frame-options":"DENY","strict-transport-security":"max-age=64072000; includeSubDomains; preload"}
+
+[debug] [2025-11-14T05:28:02.706Z] : >>>> HTTP REQUEST : GET https://api.catalyst.zoho.com/baas/v1/project/22744000000162010/function 
+Query params: {"type":"basicio,event,cron,applogic,integration,browser_logic,job"}
+
+[debug] [2025-11-14T05:28:03.060Z] : <<<< HTTP RESPONSE : 200
+Response Headers: {"server":"ZGS","date":"Fri, 14 Nov 2025 05:28:03 GMT","content-type":"application/vnd.catalyst.v2+json","transfer-encoding":"chunked","connection":"keep-alive","x-content-type-options":"nosniff","cache-control":"private,no-cache,no-store,max-age=0,must-revalidate","pragma":"no-cache","expires":"Thu, 01 Jan 1970 00:00:00 GMT","x-frame-options":"DENY","strict-transport-security":"max-age=64072000; includeSubDomains; preload"}
+
+[debug] [2025-11-14T05:28:03.065Z] : unknown eol undefined hence skipping check
+[info] [2025-11-14T05:28:06.837Z] : [react-plugin]: Starting the development server...
+
+[info] [2025-11-14T05:28:06.839Z] : 
+[info] [2025-11-14T05:28:06.840Z] : ℹ Client[react-app]: Plugin : "zcatalyst-cli-plugin-react" is used for client serve
+[info] [2025-11-14T05:28:06.840Z] : 
+[info] [2025-11-14T05:28:07.854Z] : 
+[info] [2025-11-14T05:28:07.854Z] :  >>>>>>>>>>>>> AdvancedIO <<<<<<<<<<<< 
+[info] [2025-11-14T05:28:07.855Z] : ℹ server: http://localhost:3000/server/server/
+[info] [2025-11-14T05:28:07.855Z] : 
+[info] [2025-11-14T05:28:07.856Z] : 
+[info] [2025-11-14T05:28:07.857Z] :  >>>>>>>>>>>>> Web Client <<<<<<<<<<<<
+[info] [2025-11-14T05:28:07.858Z] : ℹ client[react-app]: http://localhost:3000/app/
+[info] [2025-11-14T05:28:07.859Z] : 
+[info] [2025-11-14T05:28:24.086Z] : [react-plugin]: Compiled successfully!
+[info] [2025-11-14T05:28:24.087Z] : [react-plugin]: 
+[info] [2025-11-14T05:28:24.088Z] : [react-plugin]: You can now view react-app in the browser.
+[info] [2025-11-14T05:28:24.088Z] : [react-plugin]: 
+[info] [2025-11-14T05:28:24.089Z] : [react-plugin]:   Local:            http://localhost:3000/app/
+[info] [2025-11-14T05:28:24.089Z] : [react-plugin]:   On Your Network:  http://192.168.1.212:3000/app/
+[info] [2025-11-14T05:28:24.089Z] : [react-plugin]: 
+[info] [2025-11-14T05:28:24.090Z] : [react-plugin]: Note that the development build is not optimized.
+[info] [2025-11-14T05:28:24.090Z] : [react-plugin]: To create a production build, use npm run build.
+[info] [2025-11-14T05:28:24.091Z] : [react-plugin]: 
+[debug] [2025-11-14T06:17:55.655Z] : > refreshing access token <
+[debug] [2025-11-14T06:17:55.674Z] : >>>> HTTP REQUEST : POST https://accounts.zoho.com/oauth/v2/token 
+<request body omitted>
+
+[debug] [2025-11-14T06:17:55.713Z] : > refreshing access token <
+[debug] [2025-11-14T06:17:55.714Z] : >>>> HTTP REQUEST : POST https://accounts.zoho.com/oauth/v2/token 
+<request body omitted>
+
+[debug] [2025-11-14T06:17:55.717Z] : > refreshing access token <
+[debug] [2025-11-14T06:17:55.719Z] : >>>> HTTP REQUEST : POST https://accounts.zoho.com/oauth/v2/token 
+<request body omitted>
+
+[debug] [2025-11-14T06:17:56.745Z] : <<<< HTTP RESPONSE : 200
+Response Headers: {"server":"ZGS","date":"Fri, 14 Nov 2025 06:17:57 GMT","content-type":"application/json;charset=UTF-8","content-length":"2420","connection":"keep-alive","cache-control":"no-store","x-content-type-options":"nosniff","pragma":"no-cache","x-frame-options":"SAMEORIGIN","vary":"accept-encoding","content-language":"en-US","strict-transport-security":"max-age=64072000; includeSubDomains; preload"}
+
+[debug] [2025-11-14T06:17:56.901Z] : <<<< HTTP RESPONSE : 200
+Response Headers: {"server":"ZGS","date":"Fri, 14 Nov 2025 06:17:57 GMT","content-type":"application/json;charset=UTF-8","content-length":"2420","connection":"keep-alive","cache-control":"no-store","x-content-type-options":"nosniff","pragma":"no-cache","x-frame-options":"SAMEORIGIN","vary":"accept-encoding","content-language":"en-US","strict-transport-security":"max-age=64072000; includeSubDomains; preload"}
+
+[debug] [2025-11-14T06:17:56.918Z] : <<<< HTTP RESPONSE : 200
+Response Headers: {"server":"ZGS","date":"Fri, 14 Nov 2025 06:17:57 GMT","content-type":"application/json;charset=UTF-8","content-length":"2420","connection":"keep-alive","cache-control":"no-store","x-content-type-options":"nosniff","pragma":"no-cache","x-frame-options":"SAMEORIGIN","vary":"accept-encoding","content-language":"en-US","strict-transport-security":"max-age=64072000; includeSubDomains; preload"}
+
+[info] [2025-11-14T06:25:01.536Z] : [react-plugin]: Compiling...
+[info] [2025-11-14T06:25:02.426Z] : [react-plugin]: Compiled successfully!
+[info] [2025-11-14T06:25:02.427Z] : [react-plugin]: 
+[info] [2025-11-14T06:25:02.427Z] : [react-plugin]: You can now view react-app in the browser.
+[info] [2025-11-14T06:25:02.427Z] : [react-plugin]: 
+[info] [2025-11-14T06:25:02.428Z] : [react-plugin]:   Local:            http://localhost:3000/app/
+[info] [2025-11-14T06:25:02.428Z] : [react-plugin]:   On Your Network:  http://192.168.1.212:3000/app/
+[info] [2025-11-14T06:25:02.428Z] : [react-plugin]: 
+[info] [2025-11-14T06:25:02.428Z] : [react-plugin]: Note that the development build is not optimized.
+[info] [2025-11-14T06:25:02.429Z] : [react-plugin]: To create a production build, use npm run build.
+[info] [2025-11-14T06:25:02.429Z] : [react-plugin]: 
