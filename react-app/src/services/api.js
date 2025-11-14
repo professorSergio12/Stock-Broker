@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Backend root provided by user (no trailing slash to avoid double slashes)
-const API_ROOT = 'https://stock-broker-app-854646752.development.catalystserverless.com/server/server';
+const API_ROOT = 'http://localhost:3000/server/server';
 
 const api = axios.create({
   baseURL: API_ROOT,

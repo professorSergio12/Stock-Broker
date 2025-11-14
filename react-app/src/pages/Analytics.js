@@ -153,7 +153,11 @@ const Analytics = () => {
       setTradesError(null);
       
       console.log('[Analytics] Fetching trades...');
-      console.log('[Analytics] Filters:', { customerId: filters.customerId, endDate: filters.endDate });
+      console.log('[Analytics] Filters:', { 
+        customerId: filters.customerId, 
+        endDate: filters.endDate,
+        stockName: filters.stockName 
+      });
       
       // Fetch all trades for this client (with pagination if needed)
       const allTrades = [];
