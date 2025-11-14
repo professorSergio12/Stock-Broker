@@ -16,6 +16,7 @@ router.get('/meta/exchanges', stocksController.getExchanges);
 router.get('/meta/transaction-types', stocksController.getTransactionTypes);
 router.get('/meta/client-ids', stocksController.getClientIds);
 router.get('/meta/symbols', stocksController.getSymbols);
+router.get('/meta/stocks-by-client', stocksController.getStocksByClientId);
 
 module.exports = router;
 

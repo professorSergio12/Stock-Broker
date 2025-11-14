@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Backend root provided by user (no trailing slash to avoid double slashes)
-const API_ROOT = 'http://localhost:3000/server/server';
+const API_ROOT = 'https://stock-broker-app-854646752.development.catalystserverless.com/server/server';
 
 const api = axios.create({
   baseURL: API_ROOT,
@@ -160,8 +160,45 @@ export const tradesAPI = {
 
   // Get unique client IDs
   getClientIds: async () => {
-    const res = await api.get('/api/stocks/meta/client-ids');
-    return { data: { data: res.data || [] } };
+    // Add cache-busting timestamp to ensure fresh data
+    const timestamp = new Date().getTime();
+    const res = await api.get('/api/stocks/meta/client-ids', {
+      params: { _t: timestamp },
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    });
+    // Backend returns array directly, not wrapped
+    const clientIds = Array.isArray(res.data) ? res.data : [];
+    console.log(`[API] getClientIds returned ${clientIds.length} client IDs`);
+    return { data: { data: clientIds } };
+  },
+
+  // Get unique stocks for a specific client ID
+  getStocksByClientId: async (clientId) => {
+    if (!clientId) {
+      console.warn('[API] getStocksByClientId called without clientId');
+      return { data: { data: [] } };
+    }
+    // Add cache-busting timestamp to ensure fresh data
+    const timestamp = new Date().getTime();
+    const res = await api.get('/api/stocks/meta/stocks-by-client', {
+      params: { 
+        clientId: clientId,
+        _t: timestamp 
+      },
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    });
+    // Backend returns array directly, not wrapped
+    const stocks = Array.isArray(res.data) ? res.data : [];
+    console.log(`[API] getStocksByClientId returned ${stocks.length} stocks for client ${clientId}`);
+    return { data: { data: stocks } };
   },
 
   // Import trades from Excel file
