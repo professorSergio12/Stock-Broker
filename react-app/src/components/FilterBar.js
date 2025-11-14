@@ -1,5 +1,6 @@
 import React from 'react';
-import { Search, Filter, X } from 'lucide-react';
+import { Filter, X } from 'lucide-react';
+import SearchableSelect from './SearchableSelect';
 import './FilterBar.css';
 
 const FilterBar = ({ filters, onFilterChange, stocks = [], exchanges = [], transactionTypes = [], clientIds = [] }) => {
@@ -29,73 +30,59 @@ const FilterBar = ({ filters, onFilterChange, stocks = [], exchanges = [], trans
       </div>
       <div className="filter-grid">
         <div className="filter-group">
-          <label>Search Security</label>
-          <div className="search-input-wrapper">
-            <Search size={18} className="search-icon" />
-            <select
-              value={filters.stockSymbol || ''}
-              onChange={(e) => handleFilterChange('stockSymbol', e.target.value)}
-              className="filter-select"
-            >
-              <option value="">All Securities</option>
-              {stocks.map((stock) => (
-                <option key={stock} value={stock}>
-                  {stock}
-                </option>
-              ))}
-            </select>
-          </div>
+          <SearchableSelect
+            id="filter-stock-symbol"
+            label="Search Security"
+            value={filters.stockSymbol || ''}
+            onChange={(value) => handleFilterChange('stockSymbol', value)}
+            options={stocks}
+            placeholder="All Securities"
+            searchPlaceholder="Search security..."
+            description=""
+            countText={stocks.length > 0 ? `${stocks.length} securities available` : 'No securities found'}
+          />
         </div>
 
         <div className="filter-group">
-          <label>Exchange</label>
-          <select
+          <SearchableSelect
+            id="filter-exchange"
+            label="Exchange"
             value={filters.exchange || ''}
-            onChange={(e) => handleFilterChange('exchange', e.target.value)}
-            className="filter-select"
-          >
-            <option value="">All Exchanges</option>
-            {exchanges.map((exchange) => (
-              <option key={exchange} value={exchange}>
-                {exchange}
-              </option>
-            ))}
-          </select>
+            onChange={(value) => handleFilterChange('exchange', value)}
+            options={exchanges}
+            placeholder="All Exchanges"
+            searchPlaceholder="Search exchange..."
+            description=""
+            countText={exchanges.length > 0 ? `${exchanges.length} exchanges available` : 'No exchanges found'}
+          />
         </div>
 
         <div className="filter-group">
-          <label>Transaction Type</label>
-          <select
+          <SearchableSelect
+            id="filter-transaction-type"
+            label="Transaction Type"
             value={filters.tradeType || ''}
-            onChange={(e) => handleFilterChange('tradeType', e.target.value)}
-            className="filter-select"
-          >
-            <option value="">All Types</option>
-            {transactionTypes.map((type) => (
-              <option key={type} value={type}>
-                {type}
-              </option>
-            ))}
-          </select>
+            onChange={(value) => handleFilterChange('tradeType', value)}
+            options={transactionTypes}
+            placeholder="All Types"
+            searchPlaceholder="Search type..."
+            description=""
+            countText={transactionTypes.length > 0 ? `${transactionTypes.length} types available` : 'No types found'}
+          />
         </div>
 
         <div className="filter-group">
-          <label>Client ID</label>
-          <div className="search-input-wrapper">
-            <Search size={18} className="search-icon" />
-            <select
-              value={filters.customerId || ''}
-              onChange={(e) => handleFilterChange('customerId', e.target.value)}
-              className="filter-select"
-            >
-              <option value="">All Clients</option>
-              {clientIds.map((clientId) => (
-                <option key={clientId} value={clientId}>
-                  {clientId}
-                </option>
-              ))}
-            </select>
-          </div>
+          <SearchableSelect
+            id="filter-client-id"
+            label="Client ID"
+            value={filters.customerId || ''}
+            onChange={(value) => handleFilterChange('customerId', value)}
+            options={clientIds}
+            placeholder="All Clients"
+            searchPlaceholder="Search client ID..."
+            description=""
+            countText={clientIds.length > 0 ? `${clientIds.length} clients available` : 'No clients found'}
+          />
         </div>
 
         <div className="filter-group">

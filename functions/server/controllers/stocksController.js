@@ -62,6 +62,24 @@ function buildWhereClause(filters, params, tableName = DEFAULT_TABLE) {
 				conditions.push(`${column} = '${escapedStockName}'`);
 				// Don't add to params since we're embedding directly
 				console.log(`[buildWhereClause] Stock filter (security_name): "${stockName}"`);
+			} else if (key === 'security_code') {
+				// For Security_code, embed directly in query with single quotes (like dates)
+				// ZCQL requires: Security_code='STOCKCODE' (not parameterized)
+				const stockCode = String(filters[key]).trim();
+				// Escape single quotes in stock code by doubling them
+				const escapedStockCode = stockCode.replace(/'/g, "''");
+				conditions.push(`${column} = '${escapedStockCode}'`);
+				// Don't add to params since we're embedding directly
+				console.log(`[buildWhereClause] Stock filter (security_code): "${stockCode}"`);
+			} else if (key === 'exchg') {
+				// For EXCHG, embed directly in query with single quotes (like dates)
+				// ZCQL requires: EXCHG='NSE' (not parameterized)
+				const exchange = String(filters[key]).trim();
+				// Escape single quotes in exchange by doubling them
+				const escapedExchange = exchange.replace(/'/g, "''");
+				conditions.push(`${column} = '${escapedExchange}'`);
+				// Don't add to params since we're embedding directly
+				console.log(`[buildWhereClause] Exchange filter (exchg): "${exchange}"`);
 			} else {
 				conditions.push(`${column} = ?`);
 				params.push(filters[key]);
@@ -375,16 +393,60 @@ exports.getStats = async (req, res) => {
 			// Return empty array
 		}
 
-		// Daily volume (last 30 days)
+		// Daily volume (last 30 days) - with buy/sell breakdown
 		let dailyVolume = [];
 		try {
 			const dailyQ = `select TRANDATE as _id, count(ROWID) as count, sum(Net_Amount) as totalValue from ${tableName}${where} group by TRANDATE order by TRANDATE desc limit 30`;
 			const dailyRows = await zcql.executeZCQLQuery(dailyQ, params);
-			dailyVolume = (dailyRows || []).map(row => ({
-				_id: row._id || row.TRANDATE || row[`${tableName}.TRANDATE`],
-				count: Number(row.count || row[`${tableName}.count`] || 0),
-				totalValue: Number(row.totalValue || row[`${tableName}.totalValue`] || 0)
-			})).reverse(); // Reverse to show oldest first
+			
+			// For each date, get buy and sell counts
+			const dailyVolumeWithBuySell = await Promise.all((dailyRows || []).map(async (row) => {
+				const date = row._id || row.TRANDATE || row[`${tableName}.TRANDATE`];
+				const dateWhere = where ? `${where} AND TRANDATE = ?` : ` WHERE TRANDATE = ?`;
+				const dateParams = params.slice().concat([date]);
+				
+				let buyCount = 0;
+				let sellCount = 0;
+				
+				try {
+					const buyWhere = dateWhere + ` AND Tran_Type LIKE ?`;
+					const sellWhere = dateWhere + ` AND Tran_Type LIKE ?`;
+					const buyParams = dateParams.slice().concat(['B%']);
+					const sellParams = dateParams.slice().concat(['S%']);
+					
+					const [buyRows, sellRows] = await Promise.all([
+						zcql.executeZCQLQuery(`select count(ROWID) as c from ${tableName}${buyWhere}`, buyParams),
+						zcql.executeZCQLQuery(`select count(ROWID) as c from ${tableName}${sellWhere}`, sellParams)
+					]);
+					
+					buyCount = Number((buyRows && buyRows[0] && (buyRows[0].c || buyRows[0][`${tableName}.c`])) || 0);
+					sellCount = Number((sellRows && sellRows[0] && (sellRows[0].c || sellRows[0][`${tableName}.c`])) || 0);
+					
+					// Try lowercase if uppercase didn't work
+					if (buyCount === 0 && sellCount === 0) {
+						const buyParams2 = dateParams.slice().concat(['b%']);
+						const sellParams2 = dateParams.slice().concat(['s%']);
+						const [buyRows2, sellRows2] = await Promise.all([
+							zcql.executeZCQLQuery(`select count(ROWID) as c from ${tableName}${buyWhere}`, buyParams2),
+							zcql.executeZCQLQuery(`select count(ROWID) as c from ${tableName}${sellWhere}`, sellParams2)
+						]);
+						buyCount = Number((buyRows2 && buyRows2[0] && (buyRows2[0].c || buyRows2[0][`${tableName}.c`])) || 0);
+						sellCount = Number((sellRows2 && sellRows2[0] && (sellRows2[0].c || sellRows2[0][`${tableName}.c`])) || 0);
+					}
+				} catch (err) {
+					console.error(`Error getting buy/sell for date ${date}:`, err);
+				}
+				
+				return {
+					_id: date,
+					count: Number(row.count || row[`${tableName}.count`] || 0),
+					totalValue: Number(row.totalValue || row[`${tableName}.totalValue`] || 0),
+					buyTrades: buyCount,
+					sellTrades: sellCount
+				};
+			}));
+			
+			dailyVolume = dailyVolumeWithBuySell.reverse(); // Reverse to show oldest first
 		} catch (err) {
 			console.error('Daily volume query error:', err);
 			// Return empty array
@@ -423,7 +485,13 @@ exports.getExchanges = async (req, res) => {
 		const zcql = app.zcql();
 		const query = `select distinct EXCHG from ${tableName} where EXCHG is not null`;
 		const rows = await zcql.executeZCQLQuery(query, []);
-		const data = rows.map(r => r.EXCHG).filter(Boolean);
+		// Handle different ZCQL result formats
+		const data = rows.map(r => {
+			return r.EXCHG || 
+			       r[`${tableName}.EXCHG`] || 
+			       (r[tableName] && r[tableName].EXCHG) ||
+			       (r.Transaction && r.Transaction.EXCHG);
+		}).filter(Boolean);
 		return res.status(200).json(data);
 	} catch (err) {
 		return res.status(500).json({ message: 'Failed to fetch exchanges', error: String(err && err.message ? err.message : err) });
@@ -599,9 +667,15 @@ exports.getSymbols = async (req, res) => {
 		}
 		const tableName = sanitizeIdentifier(req.query.table || DEFAULT_TABLE);
 		const zcql = app.zcql();
-		const query = `select distinct Security_Name from ${tableName} where Security_Name is not null`;
+		const query = `select distinct Security_code from ${tableName} where Security_code is not null`;
 		const rows = await zcql.executeZCQLQuery(query, []);
-		const data = rows.map(r => r.Security_Name).filter(Boolean);
+		// Handle different ZCQL result formats
+		const data = rows.map(r => {
+			return r.Security_code || 
+			       r[`${tableName}.Security_code`] || 
+			       (r[tableName] && r[tableName].Security_code) ||
+			       (r.Transaction && r.Transaction.Security_code);
+		}).filter(Boolean);
 		return res.status(200).json(data);
 	} catch (err) {
 		return res.status(500).json({ message: 'Failed to fetch symbols', error: String(err && err.message ? err.message : err) });
@@ -750,6 +824,481 @@ exports.getStocksByClientId = async (req, res) => {
 			message: 'Failed to fetch stocks for client', 
 			error: String(err && err.message ? err.message : err),
 			details: err.toString()
+		});
+	}
+};
+
+// Get holdings summary for a client (stock-wise holdings with calculations)
+exports.getHoldingsSummary = async (req, res) => {
+	try {
+		const app = req.catalystApp;
+		if (!app) {
+			return res.status(500).json({ message: 'Catalyst app context missing' });
+		}
+
+		const clientId = req.query.clientId || req.query.ws_client_id;
+		if (!clientId) {
+			return res.status(400).json({ message: 'Client ID is required' });
+		}
+
+		const tableName = sanitizeIdentifier(req.query.table || DEFAULT_TABLE);
+		const zcql = app.zcql();
+
+		// Validate client ID is numeric (for direct value insertion)
+		const clientIdValue = String(clientId).trim();
+		if (!/^\d+$/.test(clientIdValue)) {
+			return res.status(400).json({ message: 'Invalid client ID format' });
+		}
+		const numClientId = parseInt(clientIdValue, 10);
+
+		// Build WHERE clause with filters (Database level filtering - EFFICIENT)
+		let whereClause = `WHERE ${tableName}.WS_client_id = ${numClientId}`;
+		
+		// Add date filter if provided (filters at database level)
+		if (req.query.endDate || req.query.trandate_to) {
+			const endDate = String(req.query.endDate || req.query.trandate_to).trim();
+			if (/^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
+				whereClause += ` AND TRANDATE <= '${endDate}'`;
+			}
+		}
+
+		console.log(`[getHoldingsSummary] Fetching transactions for client ${numClientId}...`);
+		console.log(`[getHoldingsSummary] WHERE clause: ${whereClause}`);
+
+		// Strategy: Fetch ALL transactions without OFFSET (ZCQL OFFSET can be unreliable)
+		// Use a simpler approach: fetch in batches without OFFSET, using different ORDER BY
+		const allTransactions = [];
+		const batchSize = 250; // ZCQL max is 300, use 250 to be safe
+		let totalFetched = 0;
+		let lastStockName = '';
+		let lastTrandate = '';
+		let batchNumber = 0;
+		let hasMore = true;
+
+		// First, try to get distinct stock names to verify we're getting all stocks
+		try {
+			const distinctQuery = `SELECT DISTINCT Security_Name FROM ${tableName} ${whereClause}`;
+			console.log(`[getHoldingsSummary] Checking distinct stocks with query: ${distinctQuery}`);
+			const distinctRows = await zcql.executeZCQLQuery(distinctQuery, []);
+			const distinctStocks = (distinctRows || []).map(r => {
+				const r2 = r.Transaction || r[tableName] || r;
+				return r2.Security_Name || r.Security_Name;
+			}).filter(Boolean);
+			console.log(`[getHoldingsSummary] Found ${distinctStocks.length} distinct stocks in database`);
+			console.log(`[getHoldingsSummary] Sample distinct stocks:`, distinctStocks.slice(0, 10));
+		} catch (distinctErr) {
+			console.warn(`[getHoldingsSummary] Could not fetch distinct stocks:`, distinctErr.message);
+		}
+
+		// Fetch all transactions using cursor-based pagination (more reliable than OFFSET)
+		while (hasMore) {
+			batchNumber++;
+			
+			// Build query - try without OFFSET first, then use cursor-based approach
+			let query;
+			if (batchNumber === 1) {
+				// First batch: simple query
+				query = `SELECT Security_Name, Security_code, Tran_Type, QTY, Net_Amount, RATE 
+						 FROM ${tableName} 
+						 ${whereClause} 
+						 ORDER BY Security_Name, TRANDATE 
+						 LIMIT ${batchSize}`;
+			} else {
+				// Subsequent batches: use cursor (last stock name and date)
+				// Note: ZCQL might not support this, so we'll use a simpler approach
+				query = `SELECT Security_Name, Security_code, Tran_Type, QTY, Net_Amount, RATE 
+						 FROM ${tableName} 
+						 ${whereClause} 
+						 ORDER BY Security_Name, TRANDATE 
+						 LIMIT ${batchSize} OFFSET ${(batchNumber - 1) * batchSize}`;
+			}
+
+			try {
+				console.log(`[getHoldingsSummary] Batch ${batchNumber}: Fetching...`);
+				const rows = await zcql.executeZCQLQuery(query, []);
+
+				if (!rows || rows.length === 0) {
+					console.log(`[getHoldingsSummary] Batch ${batchNumber}: No more rows`);
+					hasMore = false;
+					break;
+				}
+
+				console.log(`[getHoldingsSummary] Batch ${batchNumber}: Fetched ${rows.length} rows`);
+				allTransactions.push(...rows);
+				totalFetched += rows.length;
+
+				// Store last values for cursor (if needed)
+				if (rows.length > 0) {
+					const lastRow = rows[rows.length - 1];
+					const r = lastRow.Transaction || lastRow[tableName] || lastRow;
+					lastStockName = r.Security_Name || lastRow.Security_Name || '';
+					lastTrandate = r.TRANDATE || lastRow.TRANDATE || '';
+				}
+
+				if (rows.length < batchSize) {
+					console.log(`[getHoldingsSummary] Batch ${batchNumber}: Reached end (got ${rows.length} < ${batchSize})`);
+					hasMore = false;
+				} else {
+					// Continue to next batch
+					// Safety limit
+					if (batchNumber > 2000) { // 2000 batches * 250 = 500K rows max
+						console.warn(`[getHoldingsSummary] Reached safety limit of 2000 batches, stopping`);
+						hasMore = false;
+					}
+				}
+			} catch (queryErr) {
+				console.error(`[getHoldingsSummary] Batch ${batchNumber} error:`, queryErr);
+				console.error(`[getHoldingsSummary] Query that failed: ${query}`);
+				// If OFFSET fails, try alternative approach
+				if (batchNumber > 1 && queryErr.message && queryErr.message.includes('OFFSET')) {
+					console.log(`[getHoldingsSummary] OFFSET not supported, trying alternative approach...`);
+					hasMore = false;
+				} else {
+					throw queryErr;
+				}
+			}
+		}
+
+		console.log(`[getHoldingsSummary] ===== DATA FETCHING SUMMARY =====`);
+		console.log(`[getHoldingsSummary] Total transactions fetched: ${totalFetched}`);
+		console.log(`[getHoldingsSummary] Total batches processed: ${batchNumber}`);
+		console.log(`[getHoldingsSummary] Client ID: ${numClientId}`);
+		if (req.query.endDate || req.query.trandate_to) {
+			console.log(`[getHoldingsSummary] Date filter: <= ${req.query.endDate || req.query.trandate_to}`);
+		}
+		
+		// Log sample of raw transactions to debug
+		if (allTransactions.length > 0) {
+			console.log(`[getHoldingsSummary] Sample raw transactions (first 5):`, allTransactions.slice(0, 5).map(t => {
+				const r = t.Transaction || t[tableName] || t;
+				return {
+					stockName: r.Security_Name || r[`${tableName}.Security_Name`],
+					tranType: r.Tran_Type || r[`${tableName}.Tran_Type`],
+					qty: r.QTY || r[`${tableName}.QTY`],
+					netAmount: r.Net_Amount || r[`${tableName}.Net_Amount`]
+				};
+			}));
+		}
+
+		// Process transactions in JavaScript to calculate holdings (because ZCQL doesn't support CASE WHEN)
+		const holdingsMap = new Map();
+
+		// List of invalid entries that should be filtered out
+		const invalidStockNames = [
+			'CASH',
+			'Tax Deducted at Source',
+			'TAX',
+			'TDS',
+			'TAX DEDUCTED AT SOURCE'
+		];
+
+		let processedCount = 0;
+		let skippedCount = 0;
+		
+		allTransactions.forEach((row, idx) => {
+			// Handle different ZCQL result formats (including Transaction wrapper)
+			const r = row.Transaction || row[tableName] || row;
+			const stockName = r.Security_Name || 
+							r[`${tableName}.Security_Name`] || 
+							row.Security_Name ||
+							row[`${tableName}.Security_Name`];
+			const stockCode = r.Security_code || 
+							r[`${tableName}.Security_code`] || 
+							row.Security_code ||
+							row[`${tableName}.Security_code`];
+			const tranType = r.Tran_Type || 
+							r[`${tableName}.Tran_Type`] || 
+							row.Tran_Type ||
+							row[`${tableName}.Tran_Type`];
+			const qty = Number(r.QTY || r[`${tableName}.QTY`] || row.QTY || row[`${tableName}.QTY`] || 0);
+			const netAmount = Number(r.Net_Amount || r[`${tableName}.Net_Amount`] || row.Net_Amount || row[`${tableName}.Net_Amount`] || 0);
+
+			if (!stockName) {
+				skippedCount++;
+				if (idx < 5) {
+					console.log(`[getHoldingsSummary] Skipping row ${idx + 1}: No stock name`, {
+						hasTransaction: !!row.Transaction,
+						hasTableName: !!row[tableName],
+						keys: Object.keys(row)
+					});
+				}
+				return;
+			}
+
+			// Filter out invalid entries (CASH, TAX, etc.)
+			const isInvalid = invalidStockNames.some(invalid => 
+				stockName.toUpperCase().trim() === invalid.toUpperCase().trim() ||
+				stockName.toUpperCase().includes(invalid.toUpperCase())
+			);
+			
+			if (isInvalid) {
+				console.log(`[getHoldingsSummary] Filtering out invalid entry: ${stockName}`);
+				return;
+			}
+
+			const key = `${stockName}|${stockCode || ''}`;
+
+			if (!holdingsMap.has(key)) {
+				holdingsMap.set(key, {
+					stockName,
+					stockCode: stockCode || '',
+					totalBuyQty: 0,
+					totalSellQty: 0,
+					totalBuyAmount: 0,
+					totalSellAmount: 0
+				});
+			}
+
+			const holding = holdingsMap.get(key);
+			const isBuy = tranType && String(tranType).toUpperCase().startsWith('B');
+
+			if (isBuy) {
+				holding.totalBuyQty += qty;
+				holding.totalBuyAmount += netAmount;
+			} else {
+				holding.totalSellQty += qty;
+				holding.totalSellAmount += netAmount;
+			}
+			
+			processedCount++;
+		});
+		
+		console.log(`[getHoldingsSummary] Processing summary: processed=${processedCount}, skipped=${skippedCount}, unique stocks=${holdingsMap.size}`);
+
+		// Convert to array and calculate final metrics
+		const allHoldings = Array.from(holdingsMap.values())
+			.map(holding => {
+				const currentHolding = holding.totalBuyQty - holding.totalSellQty;
+				const profit = holding.totalSellAmount - holding.totalBuyAmount;
+				const avgBuyPrice = holding.totalBuyQty > 0 ? holding.totalBuyAmount / holding.totalBuyQty : 0;
+				const avgSellPrice = holding.totalSellQty > 0 ? holding.totalSellAmount / holding.totalSellQty : 0;
+
+				return {
+					stockName: holding.stockName,
+					stockCode: holding.stockCode,
+					currentHolding,
+					totalBuyQty: holding.totalBuyQty,
+					totalSellQty: holding.totalSellQty,
+					totalBuyAmount: holding.totalBuyAmount,
+					totalSellAmount: holding.totalSellAmount,
+					profit,
+					avgBuyPrice,
+					avgSellPrice
+				};
+			});
+
+		// Log all holdings before filtering
+		console.log(`[getHoldingsSummary] ===== BEFORE FILTERING =====`);
+		console.log(`[getHoldingsSummary] Total unique stocks processed: ${allHoldings.length}`);
+		console.log(`[getHoldingsSummary] Sample holdings:`, allHoldings.slice(0, 10).map(h => ({
+			stockName: h.stockName,
+			currentHolding: h.currentHolding,
+			totalBuyQty: h.totalBuyQty,
+			totalSellQty: h.totalSellQty
+		})));
+
+		// Filter holdings - Show ALL stocks that have been traded (even if fully sold)
+		const holdings = allHoldings
+			.filter(holding => {
+				// Filter out invalid entries only (CASH, TAX, etc.)
+				const stockName = holding.stockName || '';
+				const invalidStockNames = ['CASH', 'Tax Deducted at Source', 'TAX', 'TDS'];
+				const isInvalid = invalidStockNames.some(name => 
+					stockName.toUpperCase().includes(name.toUpperCase())
+				);
+				
+				if (isInvalid) {
+					console.log(`[getHoldingsSummary] Filtering out invalid: ${stockName}`);
+					return false;
+				}
+
+				// Show ALL stocks that have trading activity (buy or sell)
+				// Don't filter by currentHolding - show even if fully sold
+				if (holding.totalBuyQty === 0 && holding.totalSellQty === 0) {
+					console.log(`[getHoldingsSummary] Filtering out stock with no trading activity: ${stockName}`);
+					return false;
+				}
+				
+				return true;
+			})
+			.sort((a, b) => a.stockName.localeCompare(b.stockName));
+
+		console.log(`[getHoldingsSummary] ===== AFTER FILTERING =====`);
+		console.log(`[getHoldingsSummary] Total holdings (all traded stocks): ${holdings.length}`);
+		console.log(`[getHoldingsSummary] Filtered out (invalid only): ${allHoldings.length - holdings.length} stocks`);
+		
+		// Log breakdown by holding status
+		const withHoldings = holdings.filter(h => h.currentHolding > 0).length;
+		const fullySold = holdings.filter(h => h.currentHolding <= 0).length;
+		console.log(`[getHoldingsSummary] Breakdown: ${withHoldings} with remaining holdings, ${fullySold} fully sold`);
+		
+		console.log(`[getHoldingsSummary] Final holdings list:`, holdings.map(h => ({
+			stockName: h.stockName,
+			currentHolding: h.currentHolding,
+			totalBuyQty: h.totalBuyQty,
+			totalSellQty: h.totalSellQty
+		})));
+
+		return res.status(200).json(holdings);
+
+	} catch (err) {
+		console.error('[getHoldingsSummary] Error:', err);
+		return res.status(500).json({ 
+			message: 'Failed to fetch holdings summary', 
+			error: String(err && err.message ? err.message : err)
+		});
+	}
+};
+
+// Get transaction history for a specific stock of a client
+exports.getStockTransactionHistory = async (req, res) => {
+	try {
+		const app = req.catalystApp;
+		if (!app) {
+			return res.status(500).json({ message: 'Catalyst app context missing' });
+		}
+
+		const clientId = req.query.clientId || req.query.ws_client_id;
+		const stockName = decodeURIComponent(req.params.stockName); // URL parameter
+
+		if (!clientId || !stockName) {
+			return res.status(400).json({ message: 'Client ID and Stock Name are required' });
+		}
+
+		const tableName = sanitizeIdentifier(req.query.table || DEFAULT_TABLE);
+		const zcql = app.zcql();
+
+		// Validate client ID
+		const clientIdValue = String(clientId).trim();
+		if (!/^\d+$/.test(clientIdValue)) {
+			return res.status(400).json({ message: 'Invalid client ID format' });
+		}
+		const numClientId = parseInt(clientIdValue, 10);
+
+		// Escape single quotes in stock name (ZCQL v2 requirement)
+		const escapedStockName = String(stockName).trim().replace(/'/g, "''");
+
+		// Build WHERE clause
+		let whereClause = `WHERE ${tableName}.WS_client_id = ${numClientId} AND Security_Name = '${escapedStockName}'`;
+
+		// Add date filter if provided
+		if (req.query.endDate || req.query.trandate_to) {
+			const endDate = String(req.query.endDate || req.query.trandate_to).trim();
+			if (/^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
+				whereClause += ` AND TRANDATE <= '${endDate}'`;
+			}
+		}
+
+		console.log(`[getStockTransactionHistory] Fetching transactions for client ${numClientId}, stock: ${stockName}`);
+
+		// Fetch all transactions for this stock (with pagination if needed)
+		const allTransactions = [];
+		const batchSize = 250;
+		let offset = 0;
+		let hasMore = true;
+		let totalFetched = 0;
+
+		console.log(`[getStockTransactionHistory] Starting to fetch transactions for stock: ${stockName}`);
+
+		while (hasMore) {
+			const query = `SELECT * FROM ${tableName} ${whereClause} ORDER BY TRANDATE DESC LIMIT ${batchSize} OFFSET ${offset}`;
+
+			try {
+				console.log(`[getStockTransactionHistory] Fetching batch: offset=${offset}, limit=${batchSize}`);
+				const rows = await zcql.executeZCQLQuery(query, []);
+
+				if (!rows || rows.length === 0) {
+					console.log(`[getStockTransactionHistory] No more rows at offset ${offset}`);
+					hasMore = false;
+					break;
+				}
+
+				console.log(`[getStockTransactionHistory] Batch ${Math.floor(offset/batchSize) + 1}: Fetched ${rows.length} rows`);
+				allTransactions.push(...rows);
+				totalFetched += rows.length;
+
+				// Log sample of transaction types to debug
+				if (offset === 0 && rows.length > 0) {
+					const sampleTypes = rows.slice(0, 5).map(r => {
+						const r2 = r.Transaction || r[tableName] || r;
+						return r2.Tran_Type || r2.tran_type || 'UNKNOWN';
+					});
+					console.log(`[getStockTransactionHistory] Sample transaction types:`, sampleTypes);
+				}
+
+				if (rows.length < batchSize) {
+					console.log(`[getStockTransactionHistory] Reached end of data (got ${rows.length} < ${batchSize} rows)`);
+					hasMore = false;
+				} else {
+					offset += batchSize;
+					// Increased limit for transaction history
+					if (offset > 50000) {
+						console.warn(`[getStockTransactionHistory] Reached safety limit of 50K rows, stopping`);
+						hasMore = false;
+					}
+				}
+			} catch (queryErr) {
+				console.error('[getStockTransactionHistory] Query error:', queryErr);
+				console.error('[getStockTransactionHistory] Query that failed:', query);
+				throw queryErr;
+			}
+		}
+
+		console.log(`[getStockTransactionHistory] Total fetched: ${totalFetched} transactions`);
+
+		// Transform rows to match frontend format (same as in api.js)
+		const transactions = allTransactions.map((row, index) => {
+			// Handle Transaction wrapper from ZCQL
+			const r = row.Transaction || row[tableName] || row;
+			
+			// Extract transaction type with multiple fallbacks
+			const tranType = r.Tran_Type || 
+							r.tran_type || 
+							row.Tran_Type || 
+							row.tran_type ||
+							(r[`${tableName}.Tran_Type`] || row[`${tableName}.Tran_Type`]);
+			
+			const transaction = {
+				wsClientId: r.WS_client_id ?? r.ws_client_id ?? (row.WS_client_id || row.ws_client_id),
+				wsAccountCode: r.WS_Account_code ?? r.ws_account_code ?? (row.WS_Account_code || row.ws_account_code),
+				trandate: r.TRANDATE ?? r.trandate ?? (row.TRANDATE || row.trandate),
+				tranType: tranType,
+				securityName: r.Security_Name ?? r.security_name ?? (row.Security_Name || row.security_name),
+				securityCode: r.Security_code ?? r.security_code ?? (row.Security_code || row.security_code),
+				exchg: r.EXCHG ?? r.exchg ?? (row.EXCHG || row.exchg),
+				qty: r.QTY ?? r.qty ?? (row.QTY || row.qty),
+				rate: r.RATE ?? r.rate ?? (row.RATE || row.rate),
+				netAmount: r.Net_Amount ?? r.net_amount ?? r.netAmount ?? (row.Net_Amount || row.net_amount || row.netAmount),
+			};
+			
+			// Debug first few transactions
+			if (index < 3) {
+				console.log(`[getStockTransactionHistory] Transaction ${index + 1}:`, {
+					tranType: transaction.tranType,
+					securityName: transaction.securityName,
+					qty: transaction.qty,
+					rawRow: Object.keys(row),
+					hasTransaction: !!row.Transaction,
+					hasTableName: !!row[tableName]
+				});
+			}
+			
+			return transaction;
+		});
+
+		// Log summary of transaction types
+		const buyCount = transactions.filter(t => t.tranType && String(t.tranType).toUpperCase().startsWith('B')).length;
+		const sellCount = transactions.filter(t => t.tranType && String(t.tranType).toUpperCase().startsWith('S')).length;
+		const unknownCount = transactions.length - buyCount - sellCount;
+		console.log(`[getStockTransactionHistory] Transaction summary: Buy=${buyCount}, Sell=${sellCount}, Unknown=${unknownCount}, Total=${transactions.length}`);
+
+		return res.status(200).json(transactions);
+
+	} catch (err) {
+		console.error('[getStockTransactionHistory] Error:', err);
+		return res.status(500).json({ 
+			message: 'Failed to fetch stock transaction history', 
+			error: String(err && err.message ? err.message : err)
 		});
 	}
 };

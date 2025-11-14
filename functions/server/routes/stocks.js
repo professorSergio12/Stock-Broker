@@ -18,6 +18,10 @@ router.get('/meta/client-ids', stocksController.getClientIds);
 router.get('/meta/symbols', stocksController.getSymbols);
 router.get('/meta/stocks-by-client', stocksController.getStocksByClientId);
 
+// Holdings endpoints
+router.get('/holdings/summary', stocksController.getHoldingsSummary);
+router.get('/holdings/:stockName/transactions', stocksController.getStockTransactionHistory);
+
 module.exports = router;
 
 

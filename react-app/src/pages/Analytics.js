@@ -3,45 +3,36 @@ import { useNavigate } from 'react-router-dom';
 import { tradesAPI } from '../services/api';
 import { ArrowLeft, Filter, XCircle } from 'lucide-react';
 import SearchableSelect from '../components/SearchableSelect';
-import ClientTradeDetails from '../components/ClientTradeDetails';
+import HoldingsList from '../components/HoldingsList';
+import StockDetailModal from '../components/StockDetailModal';
 import './Analytics.css';
 
 const Analytics = () => {
   const navigate = useNavigate();
   const [filters, setFilters] = useState({});
   const [clientIds, setClientIds] = useState([]);
-  const [stocks, setStocks] = useState([]);
-  const [stocksLoading, setStocksLoading] = useState(false);
-  const [stocksError, setStocksError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [trades, setTrades] = useState([]);
-  const [tradesLoading, setTradesLoading] = useState(false);
-  const [tradesError, setTradesError] = useState(null);
+  const [holdings, setHoldings] = useState([]);
+  const [holdingsLoading, setHoldingsLoading] = useState(false);
+  const [holdingsError, setHoldingsError] = useState(null);
+  const [selectedStock, setSelectedStock] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     fetchFilterOptions();
   }, []);
 
-  // Fetch stocks when client ID changes
-  useEffect(() => {
-    if (filters.customerId) {
-      fetchStocksForClient();
-    } else {
-      setStocks([]);
-      setStocksError(null);
-    }
-  }, [filters.customerId]);
 
   useEffect(() => {
-    // Fetch trades when client ID is selected, or when date is selected (even without client ID)
+    // Fetch holdings when client ID is selected, or when date is selected (even without client ID)
     if (filters.customerId || filters.endDate) {
-      fetchClientTrades();
+      fetchHoldingsSummary();
     } else {
-      setTrades([]);
-      setTradesError(null);
+      setHoldings([]);
+      setHoldingsError(null);
     }
-  }, [filters.customerId, filters.endDate, filters.stockName]);
+  }, [filters.customerId, filters.endDate]);
 
   const fetchFilterOptions = async () => {
     try {
@@ -104,143 +95,60 @@ const Analytics = () => {
     });
   };
 
-  const fetchStocksForClient = async () => {
-    if (!filters.customerId) {
-      setStocks([]);
-      return;
-    }
-
-    try {
-      setStocksLoading(true);
-      setStocksError(null);
-      
-      console.log('[Analytics] Fetching stocks for client:', filters.customerId);
-      
-      const response = await tradesAPI.getStocksByClientId(filters.customerId);
-      
-      const stocksData = response?.data?.data || response?.data || [];
-      
-      console.log(`[Analytics] Fetched ${stocksData.length} unique stocks for client ${filters.customerId}`);
-      
-      setStocks(stocksData);
-    } catch (error) {
-      console.error('[Analytics] Error fetching stocks for client:', error);
-      setStocksError(error.response?.data?.message || error.message || 'Failed to fetch stocks');
-      setStocks([]);
-    } finally {
-      setStocksLoading(false);
-    }
-  };
-
   const clearFilters = () => {
     const newFilters = { ...filters };
     delete newFilters.customerId;
     delete newFilters.endDate;
-    delete newFilters.stockName;
     setFilters(newFilters);
-    setStocks([]);
+    setHoldings([]);
   };
 
-  const fetchClientTrades = async () => {
+  const fetchHoldingsSummary = async () => {
     // Allow fetching with just date filter (no client ID required)
     if (!filters.customerId && !filters.endDate) {
-      setTrades([]);
+      setHoldings([]);
       return;
     }
 
     try {
-      setTradesLoading(true);
-      setTradesError(null);
+      setHoldingsLoading(true);
+      setHoldingsError(null);
       
-      console.log('[Analytics] Fetching trades...');
+      console.log('[Analytics] Fetching holdings summary...');
       console.log('[Analytics] Filters:', { 
         customerId: filters.customerId, 
-        endDate: filters.endDate,
-        stockName: filters.stockName 
+        endDate: filters.endDate
       });
       
-      // Fetch all trades for this client (with pagination if needed)
-      const allTrades = [];
-      let page = 1;
-      let hasMore = true;
-      const limit = 200; // Max allowed by backend
+      const response = await tradesAPI.getHoldingsSummary(
+        filters.customerId,
+        filters.endDate
+      );
       
-      while (hasMore) {
-        const requestParams = {
-          customerId: filters.customerId,
-          page: page,
-          limit: limit,
-        };
-        
-        // Only add endDate if it's provided
-        if (filters.endDate) {
-          requestParams.endDate = filters.endDate;
-        }
-        
-        // Only add stockName if it's provided
-        if (filters.stockName) {
-          requestParams.stockSymbol = filters.stockName;
-        }
-        
-        console.log(`[Analytics] Fetching page ${page} with params:`, requestParams);
-        
-        const response = await tradesAPI.getTrades(requestParams);
-        
-        console.log(`[Analytics] API response for page ${page}:`, {
-          hasData: !!response?.data,
-          dataLength: response?.data?.data?.length || 0,
-          pagination: response?.data?.pagination
-        });
-        
-        const apiResponse = response?.data || {};
-        const rows = apiResponse.data || [];
-        const pagination = apiResponse.pagination || {};
-        
-        console.log(`[Analytics] Page ${page}: Got ${rows.length} rows, total: ${pagination.total}, pages: ${pagination.pages}`);
-        
-        if (rows && rows.length > 0) {
-          allTrades.push(...rows);
-          console.log(`[Analytics] Page ${page}: Added ${rows.length} rows, total so far: ${allTrades.length}`);
-        } else {
-          console.log(`[Analytics] Page ${page}: No rows returned`);
-        }
-        
-        // Check if there are more pages
-        if (pagination.pages && page < pagination.pages) {
-          page++;
-        } else {
-          hasMore = false;
-          console.log(`[Analytics] No more pages. Total pages: ${pagination.pages}, current page: ${page}`);
-        }
-        
-        // Safety limit
-        if (page > 100) {
-          console.warn('[Analytics] Reached safety limit of 100 pages');
-          hasMore = false;
-        }
-      }
+      const holdingsData = response?.data?.data || [];
       
-      console.log(`[Analytics] ===== FINAL RESULT =====`);
-      const filterDesc = filters.customerId 
-        ? `client ${filters.customerId}${filters.endDate ? ` up to ${filters.endDate}` : ''}`
-        : `up to date ${filters.endDate}`;
-      console.log(`[Analytics] Total trades fetched: ${allTrades.length} for ${filterDesc}`);
-      if (allTrades.length > 0) {
-        console.log(`[Analytics] First trade:`, allTrades[0]);
-        console.log(`[Analytics] Last trade:`, allTrades[allTrades.length - 1]);
-      }
-      console.log(`[Analytics] ========================`);
+      console.log(`[Analytics] Fetched ${holdingsData.length} holdings`);
       
-      setTrades(allTrades);
+      setHoldings(holdingsData);
     } catch (error) {
-      console.error('[Analytics] Error fetching client trades:', error);
+      console.error('[Analytics] Error fetching holdings:', error);
       console.error('[Analytics] Error response:', error.response);
       console.error('[Analytics] Error data:', error.response?.data);
-      setTradesError(error.response?.data?.message || error.message || 'Failed to fetch trades');
-      setTrades([]);
+      setHoldingsError(error.response?.data?.message || error.message || 'Failed to fetch holdings');
+      setHoldings([]);
     } finally {
-      setTradesLoading(false);
+      setHoldingsLoading(false);
     }
+  };
+
+  const handleViewStock = (stock) => {
+    setSelectedStock(stock);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedStock(null);
   };
 
   const hasActiveFilters = filters.customerId || filters.endDate;
@@ -275,118 +183,89 @@ const Analytics = () => {
                 <label className="filter-label">Filters</label>
               </div>
 
-              {/* Client ID Filter */}
-              <div className="filter-group">
-                {loading ? (
-                  <div>
-                    <label htmlFor="analytics-client-id" className="filter-input-label">
-                      Client ID
-                    </label>
-                    <div className="filter-select" style={{ opacity: 0.6, cursor: 'not-allowed' }}>
-                      Loading client IDs...
+              {/* Filters Row */}
+              <div className="filters-row">
+                {/* Client ID Filter */}
+                <div className="filter-group-inline">
+                  {loading ? (
+                    <div className="filter-inline-wrapper">
+                      <label htmlFor="analytics-client-id" className="filter-input-label">
+                        Client ID
+                      </label>
+                      <div className="filter-select" style={{ opacity: 0.6, cursor: 'not-allowed' }}>
+                        Loading client IDs...
+                      </div>
                     </div>
-                    <p className="filter-description">
-                      Fetching client IDs from database...
-                    </p>
-                  </div>
-                ) : error ? (
-                  <div>
-                    <label htmlFor="analytics-client-id" className="filter-input-label">
-                      Client ID
-                    </label>
-                    <div className="filter-select" style={{ borderColor: '#e53e3e', color: '#e53e3e' }}>
-                      Error loading client IDs
-                    </div>
-                    <p className="filter-description" style={{ color: '#e53e3e' }}>
-                      {error}
-                    </p>
-                    <button 
-                      onClick={fetchFilterOptions}
-                      style={{
-                        marginTop: '8px',
-                        padding: '8px 16px',
-                        background: '#667eea',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '6px',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      Retry
-                    </button>
-                  </div>
-                ) : (
-                  <SearchableSelect
-                    id="analytics-client-id"
-                    label="Client ID"
-                    value={filters.customerId || ''}
-                    onChange={handleClientIdChange}
-                    options={clientIds}
-                    placeholder="All Clients"
-                    searchPlaceholder="Search client ID..."
-                    description="Select a client ID to view all stock details for that specific client"
-                    countText={clientIds.length > 0 ? `${clientIds.length} client${clientIds.length !== 1 ? 's' : ''} available` : 'No client IDs found'}
-                  />
-                )}
-              </div>
-
-              {/* Date Filter */}
-              <div className="filter-group">
-                <label htmlFor="analytics-date" className="filter-input-label">
-                  Filter by Date
-                </label>
-                <input
-                  id="analytics-date"
-                  type="date"
-                  value={filters.endDate || ''}
-                  onChange={(e) => handleDateChange(e.target.value)}
-                  className="filter-input"
-                  placeholder="Select date"
-                />
-                <p className="filter-description">
-                  Select a date to show all stock sell and purchase transactions up to and including this date
-                </p>
-              </div>
-
-              {/* Stock Filter - Only show when a client is selected */}
-              {filters.customerId && (
-                <div className="filter-group">
-                  <label htmlFor="analytics-stock" className="filter-input-label">
-                    Filter by Stock
-                  </label>
-                  {stocksLoading ? (
-                    <div className="filter-select" style={{ opacity: 0.6, cursor: 'not-allowed' }}>
-                      Loading stocks...
-                    </div>
-                  ) : stocksError ? (
-                    <div className="filter-select" style={{ borderColor: '#e53e3e', color: '#e53e3e' }}>
-                      Error loading stocks
+                  ) : error ? (
+                    <div className="filter-inline-wrapper">
+                      <label htmlFor="analytics-client-id" className="filter-input-label">
+                        Client ID
+                      </label>
+                      <div className="filter-select" style={{ borderColor: '#e53e3e', color: '#e53e3e' }}>
+                        Error loading client IDs
+                      </div>
+                      <button 
+                        onClick={fetchFilterOptions}
+                        className="retry-btn"
+                      >
+                        Retry
+                      </button>
                     </div>
                   ) : (
-                    <SearchableSelect
-                      id="analytics-stock"
-                      value={filters.stockName || ''}
-                      onChange={(value) => setFilters({ ...filters, stockName: value || undefined })}
-                      options={stocks}
-                      placeholder="All Stocks"
-                      searchPlaceholder="Search stock name..."
-                      description={`Select a stock to filter trades. ${stocks.length} stock${stocks.length !== 1 ? 's' : ''} available for this client.`}
-                      countText={stocks.length > 0 ? `${stocks.length} stock${stocks.length !== 1 ? 's' : ''} available` : 'No stocks found'}
-                    />
+                    <div className="filter-inline-wrapper">
+                      <label htmlFor="analytics-client-id" className="filter-input-label">
+                        Client ID
+                      </label>
+                      <SearchableSelect
+                        id="analytics-client-id"
+                        label=""
+                        value={filters.customerId || ''}
+                        onChange={handleClientIdChange}
+                        options={clientIds}
+                        placeholder="All Clients"
+                        searchPlaceholder="Search client ID..."
+                        description=""
+                        countText={clientIds.length > 0 ? `${clientIds.length} client${clientIds.length !== 1 ? 's' : ''} available` : 'No client IDs found'}
+                      />
+                    </div>
                   )}
                 </div>
-              )}
 
-              {/* Clear Button */}
-              {hasActiveFilters && (
-                <button 
-                  className="clear-filters-btn"
-                  onClick={clearFilters}
-                >
-                  <XCircle size={16} />
-                  Clear All Filters
-                </button>
-              )}
+                {/* Date Filter */}
+                <div className="filter-group-inline">
+                  <div className="filter-inline-wrapper">
+                    <label htmlFor="analytics-date" className="filter-input-label">
+                      Filter by Date
+                    </label>
+                    <input
+                      id="analytics-date"
+                      type="date"
+                      value={filters.endDate || ''}
+                      onChange={(e) => handleDateChange(e.target.value)}
+                      className="filter-input"
+                      placeholder="Select date"
+                    />
+                  </div>
+                </div>
+
+                {/* Clear Button */}
+                {hasActiveFilters && (
+                  <div className="filter-group-inline clear-btn-wrapper">
+                    <div className="filter-inline-wrapper">
+                      <label className="filter-input-label" style={{ visibility: 'hidden' }}>
+                        Clear
+                      </label>
+                      <button 
+                        className="clear-filters-btn-inline"
+                        onClick={clearFilters}
+                      >
+                        <XCircle size={16} />
+                        Clear All
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {/* Active Filters Display */}
               {hasActiveFilters && (
@@ -403,11 +282,6 @@ const Analytics = () => {
                         Date: {new Date(filters.endDate).toLocaleDateString('en-IN')}
                       </span>
                     )}
-                    {filters.stockName && (
-                      <span className="active-filter-badge">
-                        Stock: {filters.stockName}
-                      </span>
-                    )}
                   </div>
                 </div>
               )}
@@ -415,16 +289,16 @@ const Analytics = () => {
           </div>
         )}
 
-        {/* Client Trade Details */}
+        {/* Holdings List */}
         {(filters.customerId || filters.endDate) && (
-          <div className="client-trades-section">
-            {tradesError ? (
-              <div className="trades-error">
+          <div className="holdings-section">
+            {holdingsError ? (
+              <div className="holdings-error">
                 <p style={{ color: '#e53e3e', margin: '20px 0' }}>
-                  Error loading trades: {tradesError}
+                  Error loading holdings: {holdingsError}
                 </p>
                 <button 
-                  onClick={fetchClientTrades}
+                  onClick={fetchHoldingsSummary}
                   style={{
                     padding: '8px 16px',
                     background: '#667eea',
@@ -438,15 +312,23 @@ const Analytics = () => {
                 </button>
               </div>
             ) : (
-              <ClientTradeDetails 
-                trades={trades}
-                loading={tradesLoading}
-                clientId={filters.customerId}
-                endDate={filters.endDate}
+              <HoldingsList 
+                holdings={holdings}
+                loading={holdingsLoading}
+                onViewStock={handleViewStock}
               />
             )}
           </div>
         )}
+
+        {/* Stock Detail Modal */}
+        <StockDetailModal
+          isOpen={isModalOpen}
+          onClose={handleCloseModal}
+          stock={selectedStock}
+          clientId={filters.customerId}
+          endDate={filters.endDate}
+        />
       </div>
     </div>
   );

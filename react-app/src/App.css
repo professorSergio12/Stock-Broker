@@ -4,6 +4,12 @@
   box-sizing: border-box;
 }
 
+html, body {
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100vw;
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
@@ -17,6 +23,15 @@ body {
   min-height: 100vh;
   display: flex;
   position: relative;
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+.dashboard-page {
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
 }
 
 .app-content-wrapper {
@@ -25,6 +40,9 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  width: calc(100% - 250px);
+  max-width: calc(100vw - 250px);
+  overflow-x: hidden;
 }
 
 .app-header {
@@ -76,13 +94,16 @@ body {
   max-width: 1400px;
   margin: 0 auto;
   padding: 32px 24px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 24px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
   margin-bottom: 32px;
+  width: 100%;
 }
 
 .loading-container {
@@ -111,6 +132,12 @@ body {
 }
 
 @media (max-width: 768px) {
+  .app-content-wrapper {
+    margin-left: 0;
+    width: 100%;
+    max-width: 100vw;
+  }
+
   .app-header {
     padding: 24px 16px;
   }

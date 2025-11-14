@@ -117,9 +117,12 @@ const SearchableSelect = ({
           aria-expanded={isOpen}
           aria-haspopup="listbox"
         >
-          <span className={!value ? 'placeholder' : ''}>
-            {selectedLabel}
-          </span>
+          <div className="searchable-select-trigger-content">
+            <Search size={18} className="search-icon-trigger" />
+            <span className={!value ? 'placeholder' : ''}>
+              {selectedLabel}
+            </span>
+          </div>
           <div className="searchable-select-actions">
             {value && (
               <button
@@ -141,7 +144,6 @@ const SearchableSelect = ({
         {isOpen && (
           <div className="searchable-select-dropdown">
             <div className="searchable-select-search">
-              <Search size={16} className="search-icon" />
               <input
                 ref={searchInputRef}
                 type="text"

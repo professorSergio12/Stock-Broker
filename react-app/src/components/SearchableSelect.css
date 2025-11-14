@@ -48,6 +48,19 @@
   color: #a0aec0;
 }
 
+.searchable-select-trigger-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.search-icon-trigger {
+  color: #718096;
+  flex-shrink: 0;
+}
+
 .searchable-select-actions {
   display: flex;
   align-items: center;
@@ -103,17 +116,11 @@
   border-bottom: 1px solid #e2e8f0;
   display: flex;
   align-items: center;
-  gap: 8px;
   background: #f7fafc;
 }
 
-.search-icon {
-  color: #718096;
-  flex-shrink: 0;
-}
-
 .searchable-select-input {
-  flex: 1;
+  width: 100%;
   border: none;
   background: transparent;
   font-size: 14px;

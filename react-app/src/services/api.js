@@ -21,7 +21,7 @@ export const tradesAPI = {
       exchg: params.exchange,
       tran_type: params.tradeType,
       ws_client_id: params.customerId,
-      security_name: params.stockSymbol,
+      security_code: params.stockSymbol, // Changed from security_name to security_code
       // date range
       trandate_from: params.startDate,
       trandate_to: params.endDate,
@@ -126,7 +126,7 @@ export const tradesAPI = {
       exchg: params.exchange,
       tran_type: params.tradeType,
       ws_client_id: params.customerId,
-      security_name: params.stockSymbol,
+      security_code: params.stockSymbol, // Changed from security_name to security_code
       trandate_from: params.startDate,
       trandate_to: params.endDate,
     };
@@ -220,6 +220,25 @@ export const tradesAPI = {
   // Delete all trades
   deleteAll: () => {
     return api.delete('/trades/all');
+  },
+
+  // Get holdings summary for a client (stock-wise holdings)
+  getHoldingsSummary: async (clientId, endDate) => {
+    const params = { clientId };
+    if (endDate) params.endDate = endDate;
+    const res = await api.get('/api/stocks/holdings/summary', { params });
+    return { data: { data: res.data || [] } };
+  },
+
+  // Get transaction history for a specific stock
+  getStockTransactionHistory: async (clientId, stockName, endDate) => {
+    const params = { clientId };
+    if (endDate) params.endDate = endDate;
+    const encodedStockName = encodeURIComponent(stockName);
+    const res = await api.get(`/api/stocks/holdings/${encodedStockName}/transactions`, { params });
+    // Backend returns array directly
+    const transactions = Array.isArray(res.data) ? res.data : [];
+    return { data: { data: transactions } };
   },
 };
 
