@@ -5,6 +5,12 @@ import './Navigation.css';
 
 const Navigation = () => {
   const location = useLocation();
+  
+  // With basename="/app", location.pathname is relative to /app
+  // So "/" means /app/ and "/analytics" means /app/analytics
+  const isActive = (path) => {
+    return location.pathname === path || location.pathname === `${path}/`;
+  };
 
   return (
     <nav className="navigation-sidebar">
@@ -14,14 +20,14 @@ const Navigation = () => {
       <div className="navigation-items">
         <Link 
           to="/"
-          className={`navigation-item ${location.pathname === '/' ? 'active' : ''}`}
+          className={`navigation-item ${isActive('/') ? 'active' : ''}`}
         >
           <LayoutDashboard size={20} />
           <span>Dashboard</span>
         </Link>
         <Link 
           to="/analytics"
-          className={`navigation-item ${location.pathname === '/analytics' ? 'active' : ''}`}
+          className={`navigation-item ${isActive('/analytics') ? 'active' : ''}`}
         >
           <BarChart3 size={20} />
           <span>Analytics</span>
