@@ -52,6 +52,16 @@ function buildWhereClause(filters, params, tableName = DEFAULT_TABLE) {
 					conditions.push(`${tableName}.${column} = ?`);
 					params.push(clientIdValue);
 				}
+			} else if (key === 'security_name') {
+				// For Security_Name, embed directly in query with single quotes (like dates)
+				// ZCQL requires: Security_Name='Stock Name' (not parameterized)
+				// Based on working query: SELECT * from Transaction where Transaction.WS_client_id=8800001 AND Security_Name='Shree Cement Limited'
+				const stockName = String(filters[key]).trim();
+				// Escape single quotes in stock name by doubling them
+				const escapedStockName = stockName.replace(/'/g, "''");
+				conditions.push(`${column} = '${escapedStockName}'`);
+				// Don't add to params since we're embedding directly
+				console.log(`[buildWhereClause] Stock filter (security_name): "${stockName}"`);
 			} else {
 				conditions.push(`${column} = ?`);
 				params.push(filters[key]);
@@ -135,14 +145,17 @@ exports.listStocks = async (req, res) => {
 
 		const query = `select * from ${tableName}${where}${orderBy} limit ${limit} offset ${offset}`;
 
-		// Log query details for debugging (both client ID and date filters)
-		if (req.query.ws_client_id || req.query.trandate_to) {
+		// Log query details for debugging (client ID, date, and stock filters)
+		if (req.query.ws_client_id || req.query.trandate_to || req.query.security_name) {
 			console.log(`[listStocks] ===== QUERY DEBUG =====`);
 			if (req.query.ws_client_id) {
 				console.log(`[listStocks] Client ID from request: "${req.query.ws_client_id}"`);
 			}
 			if (req.query.trandate_to) {
 				console.log(`[listStocks] Date filter (trandate_to): "${req.query.trandate_to}"`);
+			}
+			if (req.query.security_name) {
+				console.log(`[listStocks] Stock filter (security_name): "${req.query.security_name}"`);
 			}
 			console.log(`[listStocks] WHERE clause: ${where}`);
 			console.log(`[listStocks] Params:`, params);
